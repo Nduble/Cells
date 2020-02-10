@@ -1,8 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy
+import time
 
-amin,amax,bmin,bmax,Na,Nb,Ntheta=3,15,3,15,30,30,10
+amin,amax,bmin,bmax,Na,Nb,Ntheta=3,15,3,15,10,10,10
 
 def discreteP(amin,amax,bmin,bmax,Na,Nb,Ntheta):
     A=np.linspace(amin,amax,Na)
@@ -16,12 +17,10 @@ def discreteP(amin,amax,bmin,bmax,Na,Nb,Ntheta):
     P[:,:,:,1]=Y
     P[:,:,:,2]=Z
     return P.reshape(Na*Nb*Ntheta,3)
+t0=time.time()
 
 P=discreteP(amin,amax,bmin,bmax,Na,Nb,Ntheta)
 #print(P)
-
-def rotation2(u,theta):
-    return np.array([[np.cos(theta),np.sin(theta)],[-np.sin(theta),np.cos(theta)]])@u
 
 a,b,theta,m,n=10,30,30,100,100
 
@@ -50,9 +49,27 @@ def Translation(Dk,dx,dy):
     T=np.eye(Dk.shape[0],k=dx+N*dy)
     return np.abs(np.fft.ifft2(np.fft.fft2(T)@np.fft.fft2(Dk))/N**2)
 
+T1=time.time()
+
 D1=dicotisation(P,k,l)
+
+T2=time.time()
+
 D2=Translation(D1,20,-30)
+
+T3=time.time()
+
 D3=Translation(D1,30,40)
+
+T4=time.time()
+
+D4=Translation(D1,10,40)
+D4=Translation(D1,30,40)
+
+print(T1-t0)
+print(T2-T1)
+print(T3-T2)
+print(T4-T3)
 
 Cell1=D1[:,int(D1.shape[1]*np.random.rand())].reshape(k,l)
 Cell2=D2[:,int(D1.shape[1]*np.random.rand())].reshape(k,l)
