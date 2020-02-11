@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import scipy
 import time
 
-amin,amax,bmin,bmax,Na,Nb,Ntheta=3,15,3,15,10,10,10
+amin,amax,bmin,bmax,Na,Nb,Ntheta=5,8,5,8,3,3,10
 
 def discreteP(amin,amax,bmin,bmax,Na,Nb,Ntheta):
     A=np.linspace(amin,amax,Na)
@@ -36,48 +36,27 @@ I=Image(a,b,theta,m,n)
 k,l=100,100
     
 def dicotisation(Param,k,l):
-    n=Param.shape[0]
-    m=k*l
-    D=np.zeros((m,n))
-    for i in range(n):
+    d=Param.shape[0]
+    D=np.zeros((k,l,d))
+    for i in range(d):
         a,b,theta=Param[i]
-        D[:,i]=Image(a,b,theta,k,l).reshape(1,m)
-    return D    
+        D[:,:,i]=np.fft.fft2(np.fft.fftshift(Image(a,b,theta,k,l)))
+    return D
 
-def Translation(Dk,dx,dy):
-    N=int(np.sqrt(Dk.shape[0]))
-    T=np.eye(Dk.shape[0],k=dx+N*dy)
-    return np.abs(np.fft.ifft2(np.fft.fft2(T)@np.fft.fft2(Dk))/N**2)
+def Df(x,D):
+    u=np.zeros((D.shape[0],D.shape[1]),dtype='complex')
+    for i in range(D.shape[2]):
+        u+=np.fft.ifft2(np.fft.fft2(x[:,:,i])*D[:,:,i])
+    return np.real(u)
+        
+d=P.shape[0]
+x=np.random.rand(k,l,d)
+x[x<=0.99999]=0
 
-T1=time.time()
+D=dicotisation(P,k,l)
+uu=Df(x,D)
 
-D1=dicotisation(P,k,l)
-
-T2=time.time()
-
-D2=Translation(D1,20,-30)
-
-T3=time.time()
-
-D3=Translation(D1,30,40)
-
-T4=time.time()
-
-D4=Translation(D1,10,40)
-D4=Translation(D1,30,40)
-
-print(T1-t0)
-print(T2-T1)
-print(T3-T2)
-print(T4-T3)
-
-Cell1=D1[:,int(D1.shape[1]*np.random.rand())].reshape(k,l)
-Cell2=D2[:,int(D1.shape[1]*np.random.rand())].reshape(k,l)
-Cell3=D3[:,int(D1.shape[1]*np.random.rand())].reshape(k,l)
-
-u=2*Cell1+Cell2+0.4*Cell3
-plt.imshow(u)
-
-#def Descente(D,x,u):
-#    Grad=D.transpose()@(D@x-u)
-    
+plt.figure(1)
+plt.imshow(uu)
+#symétrie hermitienne
+#\mathop{\mathrm{argmin}}
