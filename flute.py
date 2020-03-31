@@ -2,8 +2,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy
 import time
+from PIL import Image
 
-Amin,Amax,Bmin,Bmax,Na,Nb,Ntheta=5,8,5,8,3,3,10
+IMAGES=["Optimum_Grid_18.tif","Optimum_Grid_19.tif","Optimum_Grid_20.tif","Optimum_Grid_25.tif","Optimum_Grid_26.tif"]
+image=np.array(Image.open("Optimum_Grid_19.tif"))
+for file in IMAGES :
+    image=np.array(Image.open(file))
+    plt.hist(np.sort(image.reshape(10000)))
+    plt.show()
+def traitement(image,seuil=0.3):
+    N=image.shape[0]*image.shape[1]
+    S=np.sort(image,axis=None)[int(N*(1-seuil))]
+    print(S)
+    I=image*1.
+    I[I<S]=0
+    return I
+
+Amin,Amax,Bmin,Bmax,Na,Nb,Ntheta=5,8,5,8,3,3,5
 
 def discreteP(amin,amax,bmin,bmax,Na,Nb,Ntheta):
     A=np.linspace(amin,amax,Na) #discrétisation des valeurs possibles pour le premier demi-axe 
@@ -56,7 +71,7 @@ x[x<=0.99999]=0
 x=x*np.random.rand(k,l,d)*5
 
 x0=x*1.
-x0[:,:,:50]=0
+#x0[:,:,:50]=0
 
 D=dicotisation(P,k,l)
 u0=Df(x0,D)
@@ -74,9 +89,9 @@ uu=Df(x,D)
 def Dtf(x,D):
     u=np.zeros((D.shape[0],D.shape[1],D.shape[2]),dtype='complex')
     for i in range(D.shape[2]):
-        di=D[:,:,i].transpose()
-        u[:,:,i]=np.fft.ifft2(-np.fft.fft2(x)*di)
-    return np.abs(u)
+        di=D[:,:,i]
+        u[:,:,i]=np.fft.ifft2(np.fft.fft2(x)*(di.conjugate()))
+    return np.real(u)
         
 
 def Gradient(x,D,u):
@@ -89,37 +104,65 @@ g=Gradient(x,D,uu)
 def stepFrank(x,D,u,tau,lbd):
     k,l,d=x.shape
     g=Gradient(x,D,u)
-    arg=np.argmax(g)
+    arg=np.argmin(g)
     s=np.zeros(k*l*d)
-    s[arg]=lbd
+    s[arg]=1
     s=s.reshape(k,l,d)
-    return x+tau*(s-x)
+    n=10
+    beta=tau*Df(s,D)
+    gamma=(1-tau)*Df(x,D)-u
+    err=np.linalg.norm(gamma)
+    pas=lbd
+    for alpha in np.linspace(0,lbd,n):
+        if np.linalg.norm(alpha*beta+gamma)<err:
+            pas=alpha
+            err=np.linalg.norm(alpha*beta+gamma)
+    return x+tau*(pas*s-x)
 
 def frankWolfe(x0,D,u,niter,lbd):
     k=0
     x=x0*1.
+    Lbd=[]
     while k<niter:
         tau=2/(2+k)
         x=stepFrank(x,D,u,tau,lbd)
-        if 0:
+        Lbd.append(np.sum(np.abs(x)))
+        if k%100==0:
             plt.imshow(Df(x,D))
             plt.show()
             #plt.imshow(uu)
             #plt.show()
         k+=1
-    return x
+    return x,Lbd
 
-plt.imshow(uu)
+
+
+
+
+plt.imshow(image)
 
 plt.show()
+for seuil in [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]:
+    plt.imshow(traitement(image,seuil))
+    plt.show()
 """
 plt.show()
 time.sleep(10)
+"""
 """
 for i in np.linspace(1,7,5):
     xx=frankWolfe(x,D,uu,100,i)
     plt.imshow(Df(xx,D))
     plt.show()
+"""
+"""
+xx,ll=frankWolfe(x,D,uu,1000,500000)
+plt.imshow(Df(xx,D))
+plt.show()
 
-
-
+"""
+"""
+xx,ll=frankWolfe(x,D,image,500,100000)
+plt.imshow(Df(xx,D))
+plt.show()
+"""
