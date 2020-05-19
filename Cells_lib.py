@@ -1,23 +1,22 @@
 import numpy as np
-import scipy as scp
-import pylab as pyl
+#import scipy as scp
+#import pylab as pyl
 import pywt
-import pandas as pd
-import holoviews as hv
-import param
-import panel as pn
-import requests
+#import pandas as pd
+#import holoviews as hv
+#import param
+#import panel as pn
+#import requests
 import matplotlib.pyplot as plt
 
-from panel.pane import LaTeX
-hv.extension('bokeh')
+#from panel.pane import LaTeX
+#hv.extension('bokeh')
 import warnings
 warnings.filterwarnings('ignore')
 from PIL import Image
-from io import BytesIO
+#from io import BytesIO
 
-import time
-from PIL import Image
+#import time
 options = dict(cmap='gray',xaxis=None,yaxis=None,width=400,height=400,toolbar=None)
 
 def discreteP(amin,amax,bmin,bmax,Na,Nb,Ntheta):
@@ -171,5 +170,29 @@ def frankWolfe3(x0,D,u,niter,lbd):
         Py=np.clip((P@y).reshape(m,n),umin,None)
         x=stepFrank2(x,D,u-Py)
         F1.append(1/2*np.linalg.norm(Df(x,D)+Py-u))
+        k+=1
+    return x,F1
+
+def frankWolfe4(x0,D,u,niter,lbd):
+    #On optimise 1/2||Dx+Py-u||_2^2
+    #A chaque itération on trouve y optimal par MC puis on optimise les coefficients de x par MC
+    umin=np.min(u)
+    k=0
+    x=x0*1.
+    m,n=u.shape
+    F1=[]
+    P=np.ones((m,n,5))
+    X,Y=np.meshgrid(range(m),range(n))
+    P[:,:,1]=X
+    P[:,:,2]=Y
+    P[:,:,3]=X**2
+    P[:,:,4]=Y**2
+    P=P.reshape((m*n,5))
+    while k<niter:
+        y=np.linalg.lstsq(P,(u-Df(x,D)).reshape(m*n))[0]
+        Py=np.clip((P@y).reshape(m,n),umin,None)
+        x=stepFrank2(x,D,u-Py)
+        F1.append(1/2*np.linalg.norm(Df(x,D)+Py-u)+lbd*np.sum(x!=0))
+        
         k+=1
     return x,F1
