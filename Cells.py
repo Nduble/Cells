@@ -32,16 +32,20 @@ else :
     
 plt.imshow(utest)
 plt.show()
-TEST=2
+TEST=1
+fonction_test= frankWolfe4
+Niter=100
 
 if TEST==1:
-    x,F=frankWolfe(np.zeros((k,l,d)),D,utest,100,lbd)
+    x,F=fonction_test(np.zeros((k,l,d)),D,utest,50,lbd)
     plt.imshow(Df(x,D))
     plt.show()
+    plt.loglog(F)
 elif TEST==2:
-    x1,F1=frankWolfe(np.zeros((k,l,d)),D,utest,500,lbd)
-    x2,F2=frankWolfe2(np.zeros((k,l,d)),D,utest,500,lbd)
-    x3,F3=frankWolfe2(np.zeros((k,l,d)),D,utest,500,lbd)
+    x1,F1=frankWolfe(np.zeros((k,l,d)),D,utest,Niter,lbd)
+    x2,F2=frankWolfe2(np.zeros((k,l,d)),D,utest,Niter,lbd)
+    x3,F3=frankWolfe3(np.zeros((k,l,d)),D,utest,Niter,lbd)
+    x4,F4=frankWolfe4(np.zeros((k,l,d)),D,utest,Niter,lbd)
     if True :
 #        pn.Column(pn.Row(hv.Image(Df(x1,D)).opts(**options),hv.Image(Df(x2,D)).opts(**options)),
 #              pn.Row(hv.Image(Df(x3,D)).opts(**options),hv.Image(image).opts(**options)))
@@ -51,6 +55,8 @@ elif TEST==2:
         plt.show()
         plt.imshow(Df(x3,D))
         plt.show()
+        plt.imshow(Df(x4,D))
+        plt.show()
         plt.imshow(utest)
         plt.show()
     if True :
@@ -59,6 +65,7 @@ elif TEST==2:
         plt.loglog(F1[N0:]/uref,label="algorithme naif")
         plt.loglog(F2[N0:]/uref,label="ajout du fond")
         plt.loglog(F3[N0:]/uref,label="optimisation de x")
+        plt.loglog(F4[N0:]/uref,label="ajout de splines")
         plt.legend
         plt.show()
     if True :
@@ -74,3 +81,7 @@ elif TEST==2:
         plt.hist(xp3)
         plt.show()
         print("norme l0 de x:",np.sum(x3!=0),"norme l1 de x:",np.sum(np.abs(x3)))
+        xp4=x4[np.where(x4!=0)]
+        plt.hist(xp4)
+        plt.show()
+        print("norme l0 de x:",np.sum(x4!=0),"norme l1 de x:",np.sum(np.abs(x4)))

@@ -37,9 +37,9 @@ def create_Image(a,b,theta,m,n):
     I=(((X*np.cos(theta*np.pi/180)+Y*np.sin(theta*np.pi/180))/a)**2+((Y*np.cos(theta*np.pi/180)-X*np.sin(theta*np.pi/180))/b)**2)<1
     return I/np.sum(I)
 
-def spline(m,n):
+def spline(m,n,a,b):
     I=np.zeros((m,n))
-    [X,Y]=np.meshgrid(np.linspace(-(m-1)/2,(m-1)/2,m),np.linspace(-(n-1)/2,(n-1)/2,n))
+    [X,Y]=np.meshgrid(np.linspace(-a,m-a,m),np.linspace(-b,n-b,n))
     I=(X**2+Y**2)*np.log(np.sqrt(X**2+Y**2))
     return I/np.sum(I)
 
@@ -150,6 +150,20 @@ def stepFrank2(x,D,u):
     x[indices]=xopt[0]
     return x
 
+def Fond(m,n,k):
+    P=np.ones((m,n,k**2+5))
+    X,Y=np.meshgrid(range(m),range(n))
+    P[:,:,1]=X/np.sum(X)
+    P[:,:,2]=Y/np.sum(Y)
+    P[:,:,3]=X**2/np.sum(X**2)
+    P[:,:,4]=Y**2/np.sum(Y**2)
+    for i in range(k):
+        for j in range(k):
+            P[:,:,4+i*k+j]=spline(m,n,int((i+1/2)*m/k),int((j+1/2)*n/k))
+    P=P.reshape((m*n,k**2+5))
+    return P
+
+
 def frankWolfe3(x0,D,u,niter,lbd):
     #On optimise 1/2||Dx+Py-u||_2^2
     #A chaque itération on trouve y optimal par MC puis on optimise les coefficients de x par MC
@@ -158,13 +172,7 @@ def frankWolfe3(x0,D,u,niter,lbd):
     x=x0*1.
     m,n=u.shape
     F1=[]
-    P=np.ones((m,n,5))
-    X,Y=np.meshgrid(range(m),range(n))
-    P[:,:,1]=X
-    P[:,:,2]=Y
-    P[:,:,3]=X**2
-    P[:,:,4]=Y**2
-    P=P.reshape((m*n,5))
+    P=Fond(m,n,0)
     while k<niter:
         y=np.linalg.lstsq(P,(u-Df(x,D)).reshape(m*n))[0]
         Py=np.clip((P@y).reshape(m,n),umin,None)
@@ -173,26 +181,60 @@ def frankWolfe3(x0,D,u,niter,lbd):
         k+=1
     return x,F1
 
-def frankWolfe4(x0,D,u,niter,lbd):
+
+def ForwardBackward(x,u,Dk,step,lam,Niter):
+    seuil=lam*step
+    for n in range(Niter):
+        temp=Dk@x-u
+        Grad=np.conjugate(Dk).transpose()@temp
+        x=np.positive(x-seuil-step*Grad)
+    return x
+
+def frankWolfe4(x0,D,u,niter,lbd,step=1/100,Niter=50,lam=1):
     #On optimise 1/2||Dx+Py-u||_2^2
     #A chaque itération on trouve y optimal par MC puis on optimise les coefficients de x par MC
-    umin=np.min(u)
+    umin,umax=np.min(u),np.max(u)
     k=0
     x=x0*1.
     m,n=u.shape
     F1=[]
-    P=np.ones((m,n,5))
-    X,Y=np.meshgrid(range(m),range(n))
-    P[:,:,1]=X
-    P[:,:,2]=Y
-    P[:,:,3]=X**2
-    P[:,:,4]=Y**2
-    P=P.reshape((m*n,5))
+    P=Fond(m,n,3)
     while k<niter:
         y=np.linalg.lstsq(P,(u-Df(x,D)).reshape(m*n))[0]
-        Py=np.clip((P@y).reshape(m,n),umin,None)
-        x=stepFrank2(x,D,u-Py)
-        F1.append(1/2*np.linalg.norm(Df(x,D)+Py-u)+lbd*np.sum(x!=0))
+        if False:
+            Py=np.clip((P@y).reshape(m,n),threshhold,None)
+        else :
+            Py=(P@y).reshape(m,n)
+        x=stepFrank(x,D,u-Py,1,1)
+        indices=np.where(x>0)
+        N=len(indices[0])
+        Dk=np.zeros((m*n,N))
+        xx=x[np.where(x>0)]
+        for i in range(N):
+            Dk[:,i]=(np.roll(np.roll(np.fft.ifft2(D[:,:,indices[2][i]]),indices[0][i],axis=0),indices[1][i],axis=1)).reshape(m*n)
+        xx=ForwardBackward(xx.reshape(N,1),u.reshape(m*n,1),Dk,step,lam,Niter)
+        x=x*0
+        x[indices]=xx
+        F1.append(1/2*np.linalg.norm(Df(x,D)+Py-u)+lbd*np.sum(np.abs(x!=0)))
         
+        
+        
+        """
+        if k%20==0:
+            print("iter="+str(k))
+            print("fond :")
+            plt.imshow(Py,vmin=umin,vmax=umax)
+            plt.show()
+            print("approx :")
+            plt.imshow(Df(x,D),vmin=umin,vmax=umax)
+            plt.show()
+            plt.imshow(Df(x,D)+Py,vmin=umin,vmax=umax)
+            plt.show()
+            plt.imshow(Df(x,D)+Py-u,vmin=umin,vmax=umax)
+            plt.show()
+            print("F(x)="+str(F1[-1]))
+            plt.imshow(u,vmin=umin,vmax=umax)
+            plt.show()
+        """
         k+=1
     return x,F1
