@@ -1,7 +1,6 @@
 import numpy as np
 #import scipy as scp
 #import pylab as pyl
-import pywt
 #import pandas as pd
 #import holoviews as hv
 #import param
@@ -150,7 +149,7 @@ def stepFrank2(x,D,u):
     x[indices]=xopt[0]
     return x
 
-def Fond(m,n,k):
+def FondSplines(m,n,k):
     P=np.ones((m,n,k**2+5))
     X,Y=np.meshgrid(range(m),range(n))
     P[:,:,1]=X/np.sum(X)
@@ -172,53 +171,56 @@ def frankWolfe3(x0,D,u,niter,lbd):
     x=x0*1.
     m,n=u.shape
     F1=[]
-    P=Fond(m,n,0)
+    P=FondSplines(m,n,0)
     while k<niter:
         y=np.linalg.lstsq(P,(u-Df(x,D)).reshape(m*n))[0]
-        Py=np.clip((P@y).reshape(m,n),umin,None)
+        if False:
+            Py=np.clip((P@y).reshape(m,n),umin,None)
+        else :
+            Py=(P@y).reshape(m,n)
         x=stepFrank2(x,D,u-Py)
         F1.append(1/2*np.linalg.norm(Df(x,D)+Py-u))
         k+=1
     return x,F1
 
 
-def ForwardBackward(x,u,Dk,step,lam,Niter):
+def ForwardBackward(x,b,A,step,lam,Niter):
+    #Algorithme de F-B pour minimiser F(x)=f(x)+g(x) avec f(x)=1/2||Ax-b||_2^2 et g(x)=lam||x||_1
     seuil=lam*step
     for n in range(Niter):
-        temp=Dk@x-u
-        Grad=np.conjugate(Dk).transpose()@temp
-        x=np.positive(x-seuil-step*Grad)
+        Grad=np.conjugate(A).transpose()@(A@x-b)
+        x=np.clip((x-step*Grad)-seuil,0,None)
+        if n%10==1:    
+            plt.imshow((A@x).reshape((100,100)))
+            plt.show()
     return x
 
-def frankWolfe4(x0,D,u,niter,lbd,step=1/100,Niter=50,lam=1):
+def frankWolfe4(x0,D,u,niter,lbd,step=1/100,Niter=50,lam=100):
     #On optimise 1/2||Dx+Py-u||_2^2
-    #A chaque itération on trouve y optimal par MC puis on optimise les coefficients de x par MC
-    umin,umax=np.min(u),np.max(u)
+    #A chaque itération on trouve y optimal par MC, la cellule à ajouter puis on optimise les poids de x par FB
     k=0
     x=x0*1.
     m,n=u.shape
     F1=[]
-    P=Fond(m,n,3)
+    P=FondSplines(m,n,3)
     while k<niter:
         y=np.linalg.lstsq(P,(u-Df(x,D)).reshape(m*n))[0]
-        if False:
-            Py=np.clip((P@y).reshape(m,n),threshhold,None)
-        else :
-            Py=(P@y).reshape(m,n)
+        Py=(P@y).reshape(m,n)
         x=stepFrank(x,D,u-Py,1,1)
+        y=np.linalg.lstsq(P,(u-Df(x,D)).reshape(m*n))[0]
+        Py=(P@y).reshape(m,n)
         indices=np.where(x>0)
         N=len(indices[0])
         Dk=np.zeros((m*n,N))
         xx=x[np.where(x>0)]
         for i in range(N):
             Dk[:,i]=(np.roll(np.roll(np.fft.ifft2(D[:,:,indices[2][i]]),indices[0][i],axis=0),indices[1][i],axis=1)).reshape(m*n)
-        xx=ForwardBackward(xx.reshape(N,1),u.reshape(m*n,1),Dk,step,lam,Niter)
+        #Problème pour choisir les paramètres  step/lam/Niter
+        lam=np.max(xx)/10
+        xx=ForwardBackward(xx.reshape(N,1),(u-Py).reshape(m*n,1),Dk,step,lam,Niter)
         x=x*0
         x[indices]=xx
-        F1.append(1/2*np.linalg.norm(Df(x,D)+Py-u)+lbd*np.sum(np.abs(x!=0)))
-        
-        
-        
+        F1.append(1/2*np.linalg.norm(Df(x,D)+Py-u)+lam*np.sum(np.abs(x!=0)))
         """
         if k%20==0:
             print("iter="+str(k))
