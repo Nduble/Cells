@@ -16,31 +16,35 @@ d=P.shape[0]
 D=dictionnaire(P,k,l)
 
 #Image : 1 pour image synthétique, 2 pour image réelle
-IMAGE=3
+IMAGE=3 
 
 if IMAGE==0:
     #Création d'une image de synthèse aléatoire
-    x=np.random.rand(k,l,d)
-    x[x<=0.99999]=0
-    x=x*np.random.rand(k,l,d)*5
+#    x=np.random.rand(k,l,d)
+#    x[x<=0.99999]=0
+#    x=x*np.random.rand(k,l,d)*5
+    x=np.load("xtest.npy")
     utest=Df(x,D)
     lbd=30
 else :
     file="Cell"+str(IMAGE)+".tif"
     utest=np.array(Image.open(file))
-    lbd=150000000
+    lbd=1000000
     
 plt.imshow(utest)
 plt.show()
 TEST=1
-fonction_test= frankWolfe4
-Niter=100
+fonction_test= frankWolfe2
+Niter=1000
+
+uref=np.linalg.norm(utest)        
+
 
 if TEST==1:
-    x,F=fonction_test(np.zeros((k,l,d)),D,utest,50,lbd)
+    x,F=fonction_test(np.zeros((k,l,d)),D,utest,Niter,lbd)
     plt.imshow(Df(x,D))
     plt.show()
-    plt.loglog(F)
+    plt.loglog(F/uref)
 elif TEST==2:
     x1,F1=frankWolfe(np.zeros((k,l,d)),D,utest,Niter,lbd)
     x2,F2=frankWolfe2(np.zeros((k,l,d)),D,utest,Niter,lbd)
@@ -60,7 +64,6 @@ elif TEST==2:
         plt.imshow(utest)
         plt.show()
     if True :
-        uref=np.linalg.norm(utest)        
         N0=5
         plt.loglog(F1[N0:]/uref,label="algorithme naif")
         plt.loglog(F2[N0:]/uref,label="ajout du fond")
