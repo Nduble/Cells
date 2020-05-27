@@ -1,5 +1,5 @@
 import Cells_lib 
-
+#scipy.misc.imsave('outfile.jpg', image_array)
 ##----------------- Initialisations Données -------------------##
 
 #paramètres du dictionnaire 
@@ -16,7 +16,7 @@ d=P.shape[0]
 D=dictionnaire(P,k,l)
 
 #Image : 1 pour image synthétique, 2 pour image réelle
-IMAGE=3 
+IMAGE=3
 
 if IMAGE==0:
     #Création d'une image de synthèse aléatoire
@@ -33,12 +33,14 @@ else :
     
 plt.imshow(utest)
 plt.show()
-TEST=1
-fonction_test= frankWolfe2
-Niter=1000
+TEST=2
+
+fonction_test= frankWolfe3
+Niter=30
+
 
 uref=np.linalg.norm(utest)        
-
+seuil=0.8
 
 if TEST==1:
     x,F=fonction_test(np.zeros((k,l,d)),D,utest,Niter,lbd)
@@ -50,15 +52,15 @@ elif TEST==2:
     x2,F2=frankWolfe2(np.zeros((k,l,d)),D,utest,Niter,lbd)
     x3,F3=frankWolfe3(np.zeros((k,l,d)),D,utest,Niter,lbd)
     x4,F4=frankWolfe4(np.zeros((k,l,d)),D,utest,Niter,lbd)
-    if True :
+    if False :
 #        pn.Column(pn.Row(hv.Image(Df(x1,D)).opts(**options),hv.Image(Df(x2,D)).opts(**options)),
 #              pn.Row(hv.Image(Df(x3,D)).opts(**options),hv.Image(image).opts(**options)))
         plt.imshow(Df(x1,D))
         plt.show()
         plt.imshow(Df(x2,D))
         plt.show()
-        plt.imshow(Df(x3,D))
-        plt.show()
+#        plt.imshow(Df(x3,D))
+#        plt.show()
         plt.imshow(Df(x4,D))
         plt.show()
         plt.imshow(utest)
@@ -71,7 +73,7 @@ elif TEST==2:
         plt.loglog(F4[N0:]/uref,label="ajout de splines")
         plt.legend
         plt.show()
-    if True :
+    if False :
         xp1=x1[np.where(x1!=0)]
         plt.hist(xp1)
         plt.show()
@@ -88,3 +90,34 @@ elif TEST==2:
         plt.hist(xp4)
         plt.show()
         print("norme l0 de x:",np.sum(x4!=0),"norme l1 de x:",np.sum(np.abs(x4)))
+elif TEST==3:
+    utest2=utest*(np.random.rand(k,l)<seuil)
+    xx1,FF1=frankWolfe(np.zeros((k,l,d)),D,utest,Niter,lbd)
+    xx2,FF2=frankWolfe2(np.zeros((k,l,d)),D,utest,Niter,lbd)
+    xx4,FF4=frankWolfe4(np.zeros((k,l,d)),D,utest,Niter,lbd,Niter=30)
+    if True :
+#        pn.Column(pn.Row(hv.Image(Df(x1,D)).opts(**options),hv.Image(Df(x2,D)).opts(**options)),
+#              pn.Row(hv.Image(Df(x3,D)).opts(**options),hv.Image(image).opts(**options)))
+        plt.imshow(Df(xx1,D))
+        plt.show()
+        plt.imshow(Df(xx2,D))
+        plt.show()
+        plt.imshow(Df(xx3,D))
+        plt.show()
+        plt.imshow(Df(xx4,D))
+        plt.show()
+        plt.imshow(utest)
+        plt.show()
+        plt.imshow(utest2)
+        plt.show()
+    if True :
+        N0=5
+        plt.loglog(F1[N0:]/uref,label="algorithme naif")
+        plt.loglog(F2[N0:]/uref,label="ajout du fond")
+        plt.loglog(F4[N0:]/uref,label="ajout de splines")
+        plt.loglog(FF1[N0:]/uref,label="algorithme naif")
+        plt.loglog(FF2[N0:]/uref,label="ajout du fond")
+        plt.loglog(FF4[N0:]/uref,label="ajout de splines")
+        plt.legend
+        plt.show()
+    
