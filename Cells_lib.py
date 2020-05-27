@@ -94,6 +94,7 @@ def stepFrank(x,D,u,tau,lbd):
     return x+tau*(pas*s-x)
 
 def frankWolfe(x0,D,u,niter,lbd):
+    #Compute the optimization of1/2||Dx-u||_2^2
     k=0
     x=x0*1.
     F=[]
@@ -115,14 +116,14 @@ def fondPol(m,n):
     return P
 
 def frankWolfe2(x0,D,u,niter,lbd):
-    #On optimise 1/2||Dx+Py-u||_2^2
-    #A chaque itération on trouve y optimal par MC
+    #Compute the optimization of 1/2||Dx+Py-u||_2^2
+    #At each iteration we find optimal y with least square-method
     umin=np.min(u)
     k=0
     x=x0*1.
     m,n=u.shape
     F=[]
-    P=fondPol(m,n)
+    P=FondSplines(m,n,3)
     while k<niter:
         tau=2/(2+k)
         Dx=Df(x,D)
@@ -165,8 +166,8 @@ def FondSplines(m,n,k):
 
 
 def frankWolfe3(x0,D,u,niter,lbd):
-    #On optimise 1/2||Dx+Py-u||_2^2
-    #A chaque itération on trouve y optimal par MC puis on optimise les coefficients de x par MC
+    #Compute the optimization of 1/2||Dx+Py-u||_2^2
+    #At each iteration we find optimal y with least square-method, and then the cell to add with Frank-Wolfe and then we find optimal x with least square-method 
     umin=np.min(u)
     k=0
     x=x0*1.
@@ -186,8 +187,7 @@ def frankWolfe3(x0,D,u,niter,lbd):
 
 
 def ForwardBackward(x,b,A,step,lam,Niter):
-    #Algorithme de F-B pour minimiser F(x)=f(x)+g(x) avec f(x)=1/2||Ax-b||_2^2 et g(x)=lam||x||_1
-    seuil=lam*step
+    #Forward-Backward algorithm to minimize F(x)=f(x)+g(x) avec f(x)=1/2||Ax-b||_2^2 et g(x)=lam||x||_1
     for n in range(Niter):
         Grad=np.conjugate(A).transpose()@(A@x-b)
         x=euclidean_proj_simplex((x-step*Grad).reshape(np.product((x-step*Grad).shape)),lam).reshape(x.shape)
@@ -196,15 +196,14 @@ def ForwardBackward(x,b,A,step,lam,Niter):
             plt.show()
     return x
 
-def frankWolfe4(x0,D,u,niter,lbd,step=1/100,Niter=50,lam=100):
-    #On optimise 1/2||Dx+Py-u||_2^2
-    #A chaque itération on trouve y optimal par MC, la cellule à ajouter puis on optimise les poids de x par FB
+def frankWolfe4(x0,D,u,niter,lbd,step=1,Niter=50):
+    #Wompute the optimization of 1/2||Dx+Py-u||_2^2
+    #At each iteration we find optimal y with least square-method, and then the cell to add with Frank-Wolfe
     k=0
     x=x0*1.
     m,n=u.shape
     F1=[]
     P=FondSplines(m,n,3)
-    F2=[]
     while k<niter:
         y=np.linalg.lstsq(P,(u-Df(x,D)).reshape(m*n))[0]
         Py=(P@y).reshape(m,n)
@@ -217,34 +216,15 @@ def frankWolfe4(x0,D,u,niter,lbd,step=1/100,Niter=50,lam=100):
         xx=x[np.where(x>0)]
         for i in range(N):
             Dk[:,i]=(np.roll(np.roll(np.fft.ifft2(D[:,:,indices[2][i]]),indices[0][i],axis=0),indices[1][i],axis=1)).reshape(m*n)
-        #Problème pour choisir les paramètres  step/lam/Niter
-        lam=np.max(xx)/10
-        xx=ForwardBackward(xx.reshape(N,1),(u-Py).reshape(m*n,1),Dk,100/(k+1),lbd,100)
+        xx=ForwardBackward(xx.reshape(N,1),(u-Py).reshape(m*n,1),Dk,100/(k+1),lbd,Niter)
         x[indices]=xx.reshape(N)
         F1.append(1/2*np.linalg.norm(Df(x,D)+Py-u))
-        """
-        if k%20==0:
-            print("iter="+str(k))
-            print("fond :")
-            plt.imshow(Py,vmin=umin,vmax=umax)
-            plt.show()
-            print("approx :")
-            plt.imshow(Df(x,D),vmin=umin,vmax=umax)
-            plt.show()
-            plt.imshow(Df(x,D)+Py,vmin=umin,vmax=umax)
-            plt.show()
-            plt.imshow(Df(x,D)+Py-u,vmin=umin,vmax=umax)
-            plt.show()
-            print("F(x)="+str(F1[-1]))
-            plt.imshow(u,vmin=umin,vmax=umax)
-            plt.show()
-        """
         k+=1
-#        plt.imshow(Df(x,D))
-#        plt.show()
-#        plt.imshow(np.abs(Df(x,D)+Py-u))
-#        plt.show()
-        F2.append(np.sum(x))
+        #if true : plot the image every per_aff iteration
+        per_aff=20
+        if k%per_aff==1:
+            plt.imshow(Df(x,D))
+            plt.show()
     return x,F1
 
 
@@ -308,46 +288,3 @@ def euclidean_proj_simplex(v, s=1):
     w = (v - theta).clip(min=0)
     return w
 
-
-def euclidean_proj_l1ball(v, s=1):
-    """ Compute the Euclidean projection on a L1-ball
-
-    Solves the optimisation problem (using the algorithm from [1]):
-
-        min_w 0.5 * || w - v ||_2^2 , s.t. || w ||_1 <= s
-
-    Parameters
-    ----------
-    v: (n,) numpy array,
-       n-dimensional vector to project
-
-    s: int, optional, default: 1,
-       radius of the L1-ball
-
-    Returns
-    -------
-    w: (n,) numpy array,
-       Euclidean projection of v on the L1-ball of radius s
-
-    Notes
-    -----
-    Solves the problem by a reduction to the positive simplex case
-
-    See also
-    --------
-    euclidean_proj_simplex
-    """
-    assert s > 0, "Radius s must be strictly positive (%d <= 0)" % s
-    n, = v.shape  # will raise ValueError if v is not 1-D
-    # compute the vector of absolute values
-    u = np.abs(v)
-    # check if v is already a solution
-    if u.sum() <= s:
-        # L1-norm is <= s
-        return v
-    # v is not already a solution: optimum lies on the boundary (norm == s)
-    # project *u* on the simplex
-    w = euclidean_proj_simplex(u, s=s)
-    # compute the solution to the original problem on v
-    w *= np.sign(v)
-    return w
